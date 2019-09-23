@@ -11,7 +11,6 @@
 
 
 def helpMessage() {
-    log.info nfcoreHeader()
     log.info"""
     Workflow to align a set of reads in FASTQ format against a set of reference genome(s) in FASTA format.
 
