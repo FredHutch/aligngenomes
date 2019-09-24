@@ -71,6 +71,8 @@ process correctHeaders {
 set -e
 
 gunzip -c ${fastq} | \
+[ -s "${fastq}" ]
+
 awk '{if(NR % 4 == 1){print("@" 1 + ((NR - 1) / 4))}else{print}}' | \
 gzip -c > \
 ${fastq.name.replace(".gz\$", "").replace(".fastq\$", "")}.unique.headers.fastq.gz
