@@ -43,17 +43,40 @@ if (params.help){
 /*
  * Create a channel for input read files and genome files
  */
-Channel
+reads_ch = Channel
     .from(params.reads.split(","))
     .map { it -> file(it) }
     .ifEmpty { exit 1, "params.reads was empty - no input files supplied" }
-    .into { reads_for_alignment; reads_for_counting }
 
 genomes_ch = Channel
     .from(params.genomes.split(","))
     .map { it -> file(it) }
     .ifEmpty { exit 1, "params.genomes was empty - no input files supplied" }
 
+
+// Make sure that every read has a unique name
+process correctHeaders {
+  container "ubuntu:16.04"
+  errorStrategy "retry"
+  
+  input:
+  file fastq from reads_ch
+  
+  output:
+  file "${fastq.name.replace(".gz\$", "").replace(".fastq\$", "")}.unique.headers.fastq.gz" into reads_for_alignment, reads_for_counting
+
+  afterScript "rm *"
+
+  """
+set -e
+
+gunzip -c ${fastq} | \
+awk '{if(NR % 4 == 1){print("@" 1 + ((NR - 1) / 4))}else{print}}' | \
+gzip -c > \
+${fastq.name.replace(".gz\$", "").replace(".fastq\$", "")}.unique.headers.fastq.gz
+  """
+
+}
 
 process alignGenome {
   container "quay.io/fhcrc-microbiome/bwa@sha256:2fc9c6c38521b04020a1e148ba042a2fccf8de6affebc530fbdd45abc14bf9e6"
