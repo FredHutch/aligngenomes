@@ -70,12 +70,16 @@ process correctHeaders {
   """
 set -e
 
+echo Checking for input file existance
 [ -s "${fastq}" ]
 
+echo "Correcting headers"
 gunzip -c "${fastq}" | \
 awk '{if(NR % 4 == 1){print("@" 1 + ((NR - 1) / 4))}else{print}}' | \
 gzip -c > \
 "${fastq.name.replace(".gz", "").replace(".fastq", "")}.unique.headers.fastq.gz"
+
+echo Done
   """
 
 }
