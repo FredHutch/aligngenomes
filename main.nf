@@ -87,7 +87,6 @@ echo Done
 process alignGenome {
   container "quay.io/fhcrc-microbiome/bwa@sha256:2fc9c6c38521b04020a1e148ba042a2fccf8de6affebc530fbdd45abc14bf9e6"
   errorStrategy 'retry'
-  publishDir "${params.outdir}/bam/"
 
   input:
   file genome_fasta from genomes_ch
@@ -119,16 +118,18 @@ echo "Done aligning to ${genome_fasta}"
 
 }
 
-process alignmentStats {
+
+process sortBAM {
   container "quay.io/fhcrc-microbiome/bwa@sha256:2fc9c6c38521b04020a1e148ba042a2fccf8de6affebc530fbdd45abc14bf9e6"
   errorStrategy 'retry'
-  publishDir "${params.outdir}/stats/"
+  publishDir "${params.outdir}/bam/"
 
   input:
   set file(bam), val(genome_fasta_name), val(input_fastq_name) from bam_ch
   
   output:
-  set file("${bam}.idxstats"), file("${bam}.stats"), file("${bam}.pileup"), file("${bam}.positions"), val("${genome_fasta_name}"), val("${input_fastq_name}") into stats_ch
+  set file("${bam}"), val("${genome_fasta_name}"), val("${input_fastq_name}") into sorted_bam_ch
+  file "${bam}.bai"
 
   afterScript "rm -r *"
 
@@ -142,21 +143,51 @@ echo "Processing ${bam}"
 echo "Sorting alignments"
 samtools sort ${bam} > ${bam}.sorted
 
-echo "Calculating stats"
-samtools stats ${bam}.sorted > ${bam}.stats
+mv ${bam}.sorted ${bam}
 
 echo "Indexing alignments"
-samtools index ${bam}.sorted
+samtools index ${bam}
+
+echo "Done"
+  """
+
+}
+
+process alignmentStats {
+  container "quay.io/fhcrc-microbiome/bwa@sha256:2fc9c6c38521b04020a1e148ba042a2fccf8de6affebc530fbdd45abc14bf9e6"
+  errorStrategy 'retry'
+  publishDir "${params.outdir}/stats/"
+
+  input:
+  set file(bam), val(genome_fasta_name), val(input_fastq_name) from sorted_bam_ch
+  
+  output:
+  set file("${bam}.idxstats"), file("${bam}.stats"), file("${bam}.pileup"), file("${bam}.positions"), val("${genome_fasta_name}"), val("${input_fastq_name}") into stats_ch
+
+  afterScript "rm -r *"
+
+  """
+#!/bin/bash
+
+set -e
+
+echo "Processing ${bam}"
+
+echo "Calculating stats"
+samtools stats ${bam} > ${bam}.stats
+
+echo "Indexing alignments"
+samtools index ${bam}
 
 echo "Calculating idxstats"
-samtools idxstats ${bam}.sorted > ${bam}.idxstats
+samtools idxstats ${bam} > ${bam}.idxstats
 
 echo "Formatting pileup"
-samtools mpileup ${bam}.sorted > ${bam}.pileup
+samtools mpileup ${bam} > ${bam}.pileup
 
 # Make a file with three columns, the bitwise flag, and the leftmost position, and the length of the mapped segment
 echo "Formatting positions TSV"
-samtools view ${bam}.sorted | awk '{print \$2 "\\t" \$4 "\\t" length(\$10)}' > ${bam}.positions
+samtools view ${bam} | awk '{print \$2 "\\t" \$4 "\\t" length(\$10)}' > ${bam}.positions
 
 echo "Done"
   """
@@ -253,7 +284,7 @@ output["depth"] = nbases / reflen
 output["coverage"] = covlen / reflen
 output["error"] = nerror
 output["genome_length"] = reflen
-output["n_reads"] = len(position_list)
+output["n_reads"] = n_reads
 output["entropy"] = sdi
 output["genome"] = "${genome_fasta_name}"
 output["input_fastq"] = "${input_fastq_name}"
