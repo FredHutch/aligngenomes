@@ -106,23 +106,14 @@ set -e
 
 echo "Processing ${genome_fasta}"
 
-\$(gzip -t ${genome_fasta}) && ( \
-    echo "Decompressing ${genome_fasta}" && \
-    gunzip ${genome_fasta} && \
-    genome_fasta="${genome_fasta.name.replace(".gz\$", "")}" \
-) || ( \
-    echo "${genome_fasta} is not compressed" && \
-    genome_fasta="${genome_fasta}" \
-)
+echo "Indexing ${genome_fasta}"
+bwa index ${genome_fasta}
 
-echo "Indexing \$genome_fasta"
-bwa index \$genome_fasta
+echo "Aligning ${input_fastq} against ${genome_fasta}"
 
-echo "Aligning ${input_fastq} against \$genome_fasta"
-
-bwa mem -t ${threads} \$genome_fasta ${input_fastq} | \
-samtools view -b -F 4 -o ${input_fastq}.\$genome_fasta.bam
-echo "Done aligning to \$genome_fasta"
+bwa mem -t ${threads} ${genome_fasta} ${input_fastq} | \
+samtools view -b -F 4 -o ${input_fastq}.${genome_fasta}.bam
+echo "Done aligning to ${genome_fasta}"
 
     """
 
