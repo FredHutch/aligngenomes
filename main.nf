@@ -106,18 +106,14 @@ set -e
 
 echo "Processing ${genome_fasta}"
 
-if [[ \$(gzip -t ${genome_fasta}) ]]; then
-
-    echo "Decompressing ${genome_fasta}"
-    gunzip ${genome_fasta}
-    genome_fasta="${genome_fasta.name.replace(".gz\$", "")}"
-
-else
-
-    echo "${genome_fasta} is not compressed"
-    genome_fasta="${genome_fasta}"
-
-fi
+\$(gzip -t ${genome_fasta}) && ( \
+    echo "Decompressing ${genome_fasta}" && \
+    gunzip ${genome_fasta} && \
+    genome_fasta="${genome_fasta.name.replace(".gz\$", "")}" \
+) || ( \
+    echo "${genome_fasta} is not compressed" && \
+    genome_fasta="${genome_fasta}" \
+)
 
 echo "Indexing \$genome_fasta"
 bwa index \$genome_fasta
