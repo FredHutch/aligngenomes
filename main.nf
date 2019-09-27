@@ -379,7 +379,7 @@ readcounts = pd.read_csv("${readcounts_csv}").set_index(
 
 df = pd.DataFrame([
     json.load(open(fp, "rt"))
-    for fp in os.listdir(".")
+    for fp in "${all_jsons}".split(" ")
     if fp.endswith(".json")
 ])
 
