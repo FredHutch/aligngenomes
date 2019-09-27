@@ -273,7 +273,7 @@ sdi = shannon_divesity(pd.Series(position_list).value_counts().values)
 
 pileup = pd.read_csv("${pileup}", sep="\\t", header=None)
 n_reads = int(read_line("${stats}", "SN\\treads mapped:"))
-reflen = int(pd.read_csv("${idxstats}", sep="\\t", header=None).iloc[0, 1])
+reflen = int(pd.read_csv("${idxstats}", sep="\\t", header=None)[1].sum())
 covlen = pileup[3].shape[0]
 nerror = float(read_line("${stats}", "SN\\terror rate:").split("\\t")[0])
 nbases = pileup[3].sum()
