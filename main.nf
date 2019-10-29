@@ -44,8 +44,9 @@ if (params.help){
  * Create a channel for input read files and genome files
  */
 reads_ch = Channel
-    .from(params.reads.split(","))
-    .map { it -> file(it) }
+    .fromPath(params.reads.split(","))
+    .flatten()
+    .map { it -> file(it, checkIfExists=true) }
     .ifEmpty { exit 1, "params.reads was empty - no input files supplied" }
 
 genomes_ch = Channel
