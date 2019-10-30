@@ -64,7 +64,7 @@ process correctHeaders {
   file fastq from reads_ch
   
   output:
-  file "${fastq.name.replace(".gz", "").replace(".fastq", "")}.unique.headers.fastq.gz" into reads_for_alignment, reads_for_counting
+  file "${fastq.name}.unique.headers.fastq.gz" into reads_for_alignment, reads_for_counting
 
   afterScript "rm *"
 
@@ -78,7 +78,7 @@ echo "Correcting headers"
 gunzip -c "${fastq}" | \
 awk '{if(NR % 4 == 1){print("@" 1 + ((NR - 1) / 4))}else{print}}' | \
 gzip -c > \
-"${fastq.name.replace(".gz", "").replace(".fastq", "")}.unique.headers.fastq.gz"
+"${fastq.name}.unique.headers.fastq.gz"
 
 echo Done
   """
