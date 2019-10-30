@@ -164,6 +164,7 @@ process alignmentStats {
   
   output:
   set file("${bam}.idxstats"), file("${bam}.stats"), file("${bam}.pileup"), file("${bam}.positions"), val("${genome_fasta_name}"), val("${input_fastq_name}") into stats_ch
+  set val("${genome_fasta_name}"), file("${bam}.pileup") into pileup_ch
 
   afterScript "rm -r *"
 
@@ -326,6 +327,67 @@ n=\$(gunzip -c "${fastq}" | awk 'NR % 4 == 1' | wc -l)
 (( \$n > 0 ))
 
 echo "${fastq},\$n" > "${fastq}.counts.csv"
+
+// Combine all of the depth values into a single table
+process collectPileups {
+  container "quay.io/fhcrc-microbiome/python-pandas:v0.24.2"
+  publishDir "${params.outdir}/"
+  errorStrategy 'retry'
+  
+  input:
+  set val(genome_name), file(list_of_pileup_files) from pileup_ch.groupTuple()
+  
+  output:
+  file "${genome_name}.depths.csv.gz"
+
+  afterScript "rm *"
+
+  """
+#!/usr/bin/env python3
+
+import pandas as pd
+import os
+
+list_of_pileup_files = "${list_of_pileup_files}".split(" ")
+
+# Make sure all of the files are present
+for fp in list_of_pileup_files:
+    assert os.path.exists(fp)
+
+# Keep track of all of the sequencing depth values
+depth_df = {}
+
+# Read in each pileup file
+for fp in list_of_pileup_files:
+    # Extrapolate the sample name from the file name
+    sample_name = fp.replace(".bam.pileup", "")
+    sample_name = sample_name.replace(".${genome_name}", "")
+    sample_name = sample_name.replace(".unique.headers.fastq.gz", "")
+
+    # Store the depth of sequencing indexed by contig and position
+    depth_df[sample_name] = pd.read_csv(
+        fp, 
+        sep="\\t",
+        header=None
+    ).rename(columns=dict(zip(
+        [0, 1, 2, 3],
+        ["ref", "pos", "base", "depth"]
+    ))).set_index(
+        ["ref", "pos"]
+    )["depth"]
+
+# Make a DataFrame of the entire dataset
+depth_df = pd.DataFrame(
+    depth_df
+).fillna(0).reset_index()
+
+# Save to a file
+depth_df.to_csv(
+    "${genome_name}.depths.csv.gz",
+    sep=",",
+    compression="gzip",
+    index=None
+)
 
   """
 
