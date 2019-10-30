@@ -414,6 +414,10 @@ process collectCounts {
 
 set -e
 
+for fp in ${readcounts}; do
+  [ -s \$fp ]
+done
+
 echo file,n_reads > TEMP
 cat *csv >> TEMP && rm *csv && mv TEMP readcounts.csv
   """
