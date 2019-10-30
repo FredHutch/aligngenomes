@@ -95,7 +95,7 @@ process alignGenome {
   val threads from 8
   
   output:
-  set file("*.bam"), val("${genome_fasta.name}"), val("${input_fastq.name}") into bam_ch
+  set file("*.bam"), val("${genome_fasta.name}"), val("${input_fastq.name.replaceAll('.unique.headers.fastq.gz', '')}") into bam_ch
 
   afterScript "rm -r *"
 
@@ -326,7 +326,11 @@ n=\$(gunzip -c "${fastq}" | awk 'NR % 4 == 1' | wc -l)
 
 (( \$n > 0 ))
 
-echo "${fastq},\$n" > "${fastq}.counts.csv"
+echo "${fastq.name.replaceAll('.unique.headers.fastq.gz', '')},\$n" > "${fastq}.counts.csv"
+
+  """
+
+}
 
 // Combine all of the depth values into a single table
 process collectPileups {
