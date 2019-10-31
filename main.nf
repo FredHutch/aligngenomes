@@ -163,8 +163,8 @@ process alignmentStats {
   set file(bam), val(genome_fasta_name), val(input_fastq_name) from sorted_bam_ch
   
   output:
-  set file("${bam}.idxstats"), file("${bam}.stats"), file("${bam}.pileup"), file("${bam}.positions"), val("${genome_fasta_name}"), val("${input_fastq_name}") into stats_ch
-  set val("${genome_fasta_name}"), file("${bam}.pileup") into pileup_ch
+  set file("${bam}.idxstats"), file("${bam}.stats"), file("${bam}.pileup.gz"), file("${bam}.positions"), val("${genome_fasta_name}"), val("${input_fastq_name}") into stats_ch
+  set val("${genome_fasta_name}"), file("${bam}.pileup.gz") into pileup_ch
 
   afterScript "rm -r *"
 
@@ -186,6 +186,8 @@ samtools idxstats ${bam} > ${bam}.idxstats
 
 echo "Formatting pileup"
 samtools mpileup ${bam} > ${bam}.pileup
+echo "Compressing the pileup"
+gzip ${bam}.pileup
 
 # Make a file with three columns, the bitwise flag, and the leftmost position, and the length of the mapped segment
 echo "Formatting positions TSV"
@@ -273,7 +275,7 @@ position_list = positions.apply(
 # Calculate Shannon diversity
 sdi = shannon_divesity(pd.Series(position_list).value_counts().values)
 
-pileup = pd.read_csv("${pileup}", sep="\\t", header=None)
+pileup = pd.read_csv("${pileup}", sep="\\t", header=None, compression="gzip")
 n_reads = int(read_line("${stats}", "SN\\treads mapped:"))
 reflen = int(pd.read_csv("${idxstats}", sep="\\t", header=None)[1].sum())
 covlen = pileup[3].shape[0]
@@ -281,7 +283,7 @@ nerror = float(read_line("${stats}", "SN\\terror rate:").split("\\t")[0])
 nbases = pileup[3].sum()
 
 output = dict()
-output["alignment_file"] = "${pileup}".replace(".pileup", "")
+output["alignment_file"] = "${pileup}".replace(".pileup.gz", "")
 output["depth"] = nbases / reflen
 output["coverage"] = covlen / reflen
 output["error"] = nerror
@@ -291,7 +293,7 @@ output["entropy"] = sdi
 output["genome"] = "${genome_fasta_name}"
 output["input_fastq"] = "${input_fastq_name}"
 
-json_fp = "${pileup}".replace(".pileup", ".json")
+json_fp = "${pileup}".replace(".pileup.gz", ".json")
 assert json_fp.endswith(".json")
 with open(json_fp, "wt") as fo:
     fo.write(json.dumps(output, indent=4))
@@ -364,7 +366,7 @@ depth_df = {}
 # Read in each pileup file
 for fp in list_of_pileup_files:
     # Extrapolate the sample name from the file name
-    sample_name = fp.replace(".bam.pileup", "")
+    sample_name = fp.replace(".bam.pileup.gz", "")
     sample_name = sample_name.replace(".${genome_name}", "")
     sample_name = sample_name.replace(".unique.headers.fastq.gz", "")
 
@@ -372,7 +374,8 @@ for fp in list_of_pileup_files:
     depth_df[sample_name] = pd.read_csv(
         fp, 
         sep="\\t",
-        header=None
+        header=None,
+        compression="gzip"
     ).rename(columns=dict(zip(
         [0, 1, 2, 3],
         ["ref", "pos", "base", "depth"]
